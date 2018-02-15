@@ -87,7 +87,10 @@
 !-----|--1--------2---------3---------4---------5---------6---------7-|
 !
 !-----|--1--------2---------3---------4---------5---------6---------7-|
-       REAL(KIND=8), DIMENSION(nx,ny,nw,nz) :: tab_dat
+       INTEGER     , DIMENSION(nw-1,nz,nx,ny) :: tab_dat
+       REAL(KIND=8), DIMENSION(nz,nx,ny)      :: the_weights
+       REAL(KIND=8), DIMENSION(nx,ny)         :: the_sum_weights
+
 
 !-----|--1--------2---------3---------4---------5---------6---------7-|
 !       latEcb, lonEcb are coordinates of the atmospheric grid
@@ -186,7 +189,7 @@
 
 
        results = interpolate_init(nx,ny,nlat,nlon,latEcb,lonEcb,YLAT    &
-                                 ,XLONG,nw,nz,ex,tab_dat)
+                    ,XLONG,nw,nz,ex,tab_dat,the_weights,the_sum_weights)
 
 !-----|--1--------2---------3---------4---------5---------6---------7-|
 !       Interpolation test from a file
@@ -196,11 +199,10 @@
 
        CALL ReadVarClimato(nlon,nlat,nbmois,sxsnowG,TRIM(fclimSN),111)
 
-
        call cpu_time(start)
 
-       results = interpolate(tab_dat,sxsnowG,pfGi,nx,ny,nw,nz,nlon      &
-                                  ,nlat,nbmois)
+       results = interpolate(tab_dat,the_weights,the_sum_weights,sxsnowG&
+                                     ,pfGi,nx,ny,nw,nz,nlon,nlat,nbmois)
        call cpu_time(finish)
        write(*,*) '("Time = ",f6.3," seconds.")',finish-start
 

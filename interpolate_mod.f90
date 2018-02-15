@@ -26,19 +26,6 @@
 !
 !-----|--1--------2---------3---------4---------5---------6---------7-|
 
-      IMPLICIT NONE
-
-      CONTAINS
-
-      logical function interpolate_init(nx,ny,nlat,nlon,latEcb,lonEcb   &
-                                       ,YLAT,XLONG,nw,nz,ex,tab_dat)
-
-!-----|--1--------2---------3---------4---------5---------6---------7-|
-!       distance_great_circle module: main routines for computation
-!-----|--1--------2---------3---------4---------5---------6---------7-|
-       USE dgc, ONLY: compute_bounds, find_closest_EC_cell              &
-                    , which_corner, create_interp_data, expand_tab      &
-                    , circular_coord
 
 !-----|--1--------2---------3---------4---------5---------6---------7-|
 !      Tweaking FLAGS to change the program's behaviour
@@ -47,6 +34,27 @@
 !       DEBUG >  0 triggers additional printing for debug
 #define DEBUG 0
 #define USE_SUBG_OBJ 0
+
+!       INT_MODEL defines the type of interpolation model you wish
+!       INT_MODEL 0 is no distance weight (equal contribution of all cells)
+!       INT_MODEL 1 depends in cell distance quadratrically
+!       INT_MODEL 2 depends in cell distance with exponential model
+#define INT_MODEL 2
+
+
+      IMPLICIT NONE
+
+      CONTAINS
+
+      logical function interpolate_init(nx,ny,nlat,nlon,latEcb,lonEcb   &
+                ,YLAT,XLONG,nw,nz,ex,int_coord_tab,weights, sum_weights)
+
+!-----|--1--------2---------3---------4---------5---------6---------7-|
+!       distance_great_circle module: main routines for computation
+!-----|--1--------2---------3---------4---------5---------6---------7-|
+       USE dgc, ONLY: compute_bounds, find_closest_EC_cell              &
+                    , which_corner, create_interp_data, expand_tab      &
+                    , circular_coord
 
 !-----|--1--------2---------3---------4---------5---------6---------7-|
 !       GENERAL DEFINITION VARIABLES
@@ -73,7 +81,10 @@
 !-----|--1--------2---------3---------4---------5---------6---------7-|
 !      Output of this routine == tab of weights for the computation
 !-----|--1--------2---------3---------4---------5---------6---------7-|
-       REAL(KIND=8), DIMENSION(nx,ny,nw,nz),INTENT(out) :: tab_dat
+
+       REAL(KIND=8), DIMENSION(nz,nx,ny)     ,INTENT(out) :: weights
+       REAL(KIND=8), DIMENSION(nx,ny)        ,INTENT(out) :: sum_weights
+       INTEGER,      DIMENSION(nw-1,nz,nx,ny),INTENT(out) :: int_coord_tab
 
 !-----|--1--------2---------3---------4---------5---------6---------7-|
 !       latEcb, lonEcb are coordinates of the atmospheric grid
@@ -92,7 +103,20 @@
 !-----|--1--------2---------3---------4---------5---------6---------7-|
 !       Useful integers for loops mainly + file name placeholder
 !-----|--1--------2---------3---------4---------5---------6---------7-|
-       INTEGER :: k, i_close, j_close, corner, ii, jj, ll
+       INTEGER :: k, i_close, j_close, corner, ii, jj, ll, i, j
+
+#if ( INT_MODEL == 1 || INT_MODEL == 2 )
+       REAL(KIND=8) :: valmax
+#endif
+
+       REAL(KIND=8), DIMENSION(nx,ny,nw,nz) :: tab_dat
+
+
+!-----|--1--------2---------3---------4---------5---------6---------7-|
+!       sumw is the sum of weights from the neighbouring points
+!       valmax is the maximum distance over the neighbouring cells
+!-----|--1--------2---------3---------4---------5---------6---------7-|
+       REAL(KIND=8) :: sumw
 
 !-----|--1--------2---------3---------4---------5---------6---------7-|
 !       Preparing arrays for computations
@@ -104,7 +128,7 @@
        CALL expand_tab(lonEcb,nlon,ex,lonexEcb,1)
 
 !dmr   We need to fix manually the northest and southest bound ; if not
-!       the last point will be the last grid point center. 
+!       the last point will be the last grid point center.
 
        latexEcb(nlat+1:nlat+ex) = 90.0d0
        latexEcb(-ex+1:0) = -90.0d0
@@ -151,6 +175,10 @@
 !       2.3 Compute the expanded table(s) that are still absent
 
 #endif
+
+         weights(:,:,:)=0.0
+         sum_weights(:,:)=0.0
+
 !-----|--1--------2---------3---------4---------5---------6---------7-|
 !       Main loop over the cells of the ISM
 !-----|--1--------2---------3---------4---------5---------6---------7-|
@@ -211,7 +239,7 @@
           (NINT(tab_dat(ii,jj,2,ll)).EQ.j_close)) THEN
             k = 1
           ENDIF
-        ENDDO
+        ENDDO ! on nz
 
         interpolate_init = .true.
          IF ( k.EQ.0) THEN
@@ -219,70 +247,27 @@
              READ(*,*)
              interpolate_init = .false.
          ENDIF
-        ENDDO
-      ENDDO
-
-      return
-      end function interpolate_init
-
-      logical function interpolate(tab_dat,sxsnowG,pfGi,nx,ny,nw,nz,nlon&
-                                  ,nlat,nbmois)
-!       INT_MODEL defines the type of interpolation model you wish
-!       INT_MODEL 0 is no distance weight (equal contribution of all cells)
-!       INT_MODEL 1 depends in cell distance quadratrically
-!       INT_MODEL 2 depends in cell distance with exponential model
-#define INT_MODEL 2
-
-      INTEGER, INTENT(in) :: nx,ny,nw,nz,nlon,nlat,nbmois
-
-      REAL(KIND=8), DIMENSION(nx,ny,nw,nz),INTENT(in) :: tab_dat
-!-----|--1--------2---------3---------4---------5---------6---------7-|
-!       sxsnowG is the reading in climatological variable
-!-----|--1--------2---------3---------4---------5---------6---------7-|
-      REAL(KIND=8), DIMENSION(nlon,nlat,nbmois), INTENT(in) :: sxsnowG
-
-      REAL(KIND=8), DIMENSION(nx,ny, nbmois), INTENT(out) :: pfGi
-
-!-----|--1--------2---------3---------4---------5---------6---------7-|
-!       sumw is the sum of weights from the neighbouring points
-!       valmax is the maximum distance over the neighbouring cells
-!-----|--1--------2---------3---------4---------5---------6---------7-|
-       REAL(KIND=8) :: sumw
-
-#if ( INT_MODEL == 1 || INT_MODEL == 2 )
-       REAL(KIND=8) :: valmax
-#endif
-
-       REAL(KIND=8), DIMENSION(nx,ny,nz) :: weights
-
-       INTEGER :: i,j,ii,jj,k,ll
-
-!       4.2: Actual interpolation
-
-       DO k = 1, nbmois
-       DO ii = 1, nx
-         DO jj = 1, ny
-
-           pfGi(ii,jj,k) = 0.0d0
-           sumw = 0.0d0
-           weights(ii,jj,:)=0.0
 
 #if ( INT_MODEL == 1 )
 !dmr    valmax is the maximum distance from the given cells around
-           valmax  = MAXVAL(tab_dat(ii,jj,nw,:))*1.1
+         valmax  = MAXVAL(tab_dat(ii,jj,nw,:))*1.1
 #elif ( INT_MODEL == 2 )
 !dmr    in model 2, valmax should be the e-fold  distance (a valmin in fact)
            ! valmax  = MINVAL(tab_dat(ii,jj,nw,:))
-           valmax  = 400000.0 ! in meters
+         valmax  = 400000.0 ! in meters
 #endif
+         sumw = 0.0d0
 
 !dmr    nz is the number of neighbouring cells you want to interpolate with
-           DO ll = 1, nz
+         DO ll = 1, nz
 
-             i = NINT(tab_dat(ii,jj,1,ll))
-             j = NINT(tab_dat(ii,jj,2,ll))
+           i = NINT(tab_dat(ii,jj,1,ll))
+           j = NINT(tab_dat(ii,jj,2,ll))
 
-             weights(ii,jj,ll) =                                        &
+           int_coord_tab(1,ll,ii,jj)=i
+           int_coord_tab(2,ll,ii,jj)=j
+
+           weights(ll,ii,jj) =                                          &
 #if ( INT_MODEL == 1 )
            (1-tab_dat(ii,jj,nw,ll)**2/valmax**2)
 #elif ( INT_MODEL == 2 )
@@ -291,13 +276,87 @@
            1.0d0
 #endif
 
+           sumw = sumw + weights(ll,ii,jj)
+
+
+           ENDDO ! on nz
+
+           sum_weights(ii,jj) = sumw
+
+        ENDDO ! on ny
+      ENDDO   ! on nx
+
+      WRITE(*,*) "Finalized interpolate_init"
+
+      return
+      end function interpolate_init
+
+      logical function interpolate(int_coord_tab,weights,sum_weights   &
+                            ,sxsnowG,pfGi,nx,ny,nw,nz,nlon,nlat,nbmois)
+
+      INTEGER, INTENT(in) :: nx,ny,nw,nz,nlon,nlat,nbmois
+
+      INTEGER,      DIMENSION(nw-1,nz,nx,ny),INTENT(in) :: int_coord_tab
+      REAL(KIND=8), DIMENSION(nz,nx,ny)     ,INTENT(in) :: weights
+      REAL(KIND=8), DIMENSION(nx,ny)        ,INTENT(in) :: sum_weights
+!-----|--1--------2---------3---------4---------5---------6---------7-|
+!       sxsnowG is the reading in climatological variable
+!-----|--1--------2---------3---------4---------5---------6---------7-|
+      REAL(KIND=8), DIMENSION(nlon,nlat,nbmois), INTENT(in) :: sxsnowG
+
+      REAL(KIND=8), DIMENSION(nx,ny, nbmois), INTENT(out) :: pfGi
+
+!~       REAL(KIND=8) :: sumw
+!~ #if ( INT_MODEL == 1 || INT_MODEL == 2 )
+!~        REAL(KIND=8) :: valmax
+!~ #endif
+
+       INTEGER :: i,j,ii,jj,k,ll
+
+!       4.2: Actual interpolation
+
+       DO k = 1, nbmois
+       DO jj = 1, ny
+         DO ii = 1, nx
+
+           pfGi(ii,jj,k) = 0.0d0
+!~            sumw = 0.0d0
+!~            weights(ii,jj,:)=0.0
+
+!~ #if ( INT_MODEL == 1 )
+!~ !dmr    valmax is the maximum distance from the given cells around
+!~            valmax  = MAXVAL(tab_dat(ii,jj,nw,:))*1.1
+!~ #elif ( INT_MODEL == 2 )
+!~ !dmr    in model 2, valmax should be the e-fold  distance (a valmin in fact)
+!~            ! valmax  = MINVAL(tab_dat(ii,jj,nw,:))
+!~            valmax  = 400000.0 ! in meters
+!~ #endif
+
+!dmr    nz is the number of neighbouring cells you want to interpolate with
+           DO ll = 1, nz
+
+!~              i = NINT(tab_dat(ii,jj,1,ll))
+!~              j = NINT(tab_dat(ii,jj,2,ll))
+
+                i = int_coord_tab(1,ll,ii,jj)
+                j = int_coord_tab(2,ll,ii,jj)
+
+!~              weights(ii,jj,ll) =                                        &
+!~ #if ( INT_MODEL == 1 )
+!~            (1-tab_dat(ii,jj,nw,ll)**2/valmax**2)
+!~ #elif ( INT_MODEL == 2 )
+!~            EXP(1-tab_dat(ii,jj,nw,ll)/valmax)
+!~ #elif ( INT_MODEL == 0 )
+!~            1.0d0
+!~ #endif
+
              pfGi(ii,jj,k) = pfGi(ii,jj,k) + sxsnowG(j,i,k)             &
-             * weights(ii,jj,ll)
+             * weights(ll,ii,jj)
 
-             sumw = sumw + weights(ii,jj,ll)
-           ENDDO
+!~              sumw = sumw + weights(ii,jj,ll)
+           ENDDO ! on nz
 
-           pfGi(ii,jj,k) = pfGi(ii,jj,k) / sumw
+           pfGi(ii,jj,k) = pfGi(ii,jj,k) / sum_weights(ii,jj)
 
 #if ( DEBUG > 1 )
       DO i=1,NINT(SQRT(REAL(nz,KIND=4)))
