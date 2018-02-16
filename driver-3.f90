@@ -102,7 +102,7 @@
 !       Useful integers for loops mainly + file name placeholder
 !-----|--1--------2---------3---------4---------5---------6---------7-|
 !       INTEGER :: k, ios, i, j, i_close, j_close, corner, ii, jj, ll
-       INTEGER :: i, j, ios
+       INTEGER :: i, j, ios, nummois
 #if ( PLOT == 1 )
        INTEGER :: ii,jj
 #endif
@@ -121,8 +121,6 @@
        REAL(KIND=8), DIMENSION(nlon,nlat,nbmois) :: sxsnowG
 
        LOGICAL :: results
-
-
 
 !-----|--1--------2---------3---------4---------5---------6---------7-|
 !       Added for output with NCIO
@@ -201,8 +199,17 @@
 
        call cpu_time(start)
 
-       results = interpolate(tab_dat,the_weights,the_sum_weights,sxsnowG&
-                                     ,pfGi,nx,ny,nw,nz,nlon,nlat,nbmois)
+!-----|--1---------2---------3---------4---------5---------6---------7---------8---------9---------0---------1---------2----------|
+!
+!-----|--1---------2---------3---------4---------5---------6---------7---------8---------9---------0---------1---------2----------|
+!$OMP PARALLEL
+!$OMP DO
+       do nummois=1,nbmois
+          results = interpolate(tab_dat,the_weights,the_sum_weights,sxsnowG(:,:,nummois),pfGi(:,:,nummois),nx,ny,nw,nz,nlon,nlat)
+       enddo
+!$OMP END DO
+!$OMP END PARALLEL
+
        call cpu_time(finish)
        write(*,*) '("Time = ",f6.3," seconds.")',finish-start
 
