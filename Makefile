@@ -27,7 +27,7 @@ LIBSYS = /usr/lib
 INCSYS = /usr/include
 
 LIBNETCDF = -I $(INCSYS) -L$(LIBSYS) -lnetcdff -lnetcdf
-LIBNCIO   = -I../iloveclim/ncio/.obj -L../iloveclim/ncio -lncio
+LIBNCIO   = -I../ncio/.obj -L../ncio -lncio
 else
 LIBSYS = -L/usr/lib64 -lnetcdf -lnetcdff -L/lib64
 INCSYS = -I/usr/local/install/netcdf-4.3.2/include
