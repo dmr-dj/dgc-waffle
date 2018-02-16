@@ -70,6 +70,7 @@ endif
 endif
 
 SRC     = \
+	global_constants_mod.f90\
 	calcmean.f90\
 	readVarClimato.f90\
 	distance_great_circle.f90\

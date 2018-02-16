@@ -1,13 +1,15 @@
        module interpolate_mod
 
-!-----|--1--------2---------3---------4---------5---------6---------7-|
-!          This program shows and example usage of the dgc module
+!-----|--1---------2---------3---------4---------5---------6---------7---------8---------9---------0---------1---------2---------3-|
+!         This module implement a simple 2D interpolation routine
 !
 !     This is version 1.1, created June, 3rd, 2013
 !     Updated version 1.2, created August, 1st, 2015
-!     Last modification: August, 1st, 2015
+!     Updated version 1.3, created February, 15th, 2018
+!     Last modification: February, 16th, 2018
+
 !
-! Copyright 2013,2015 Didier M. Roche a.k.a. dmr
+! Copyright 2013,2015,2018 Didier M. Roche a.k.a. dmr
 ! Didier M. Roche: Didier.roche@lsce.ipsl.fr
 ! Release under GPLv3 license.
 !
@@ -24,15 +26,15 @@
 ! You should have received a copy of the GNU General Public License
 ! along with this program.  If not, see <http://www.gnu.org/licenses/>.
 !
-!-----|--1--------2---------3---------4---------5---------6---------7-|
+!-----|--1---------2---------3---------4---------5---------6---------7---------8---------9---------0---------1---------2---------3-|
 
-
-!-----|--1--------2---------3---------4---------5---------6---------7-|
-!      Tweaking FLAGS to change the program's behaviour
-!-----|--1--------2---------3---------4---------5---------6---------7-|
+!-----|--1---------2---------3---------4---------5---------6---------7---------8---------9---------0---------1---------2---------3-|
+!      Tweaking FLAGS to change the interpolation's behaviour
+!-----|--1---------2---------3---------4---------5---------6---------7---------8---------9---------0---------1---------2---------3-|
 
 !       DEBUG >  0 triggers additional printing for debug
 #define DEBUG 0
+!       DEBUG > 0 compatibility flag for use with lens-grid type objects
 #define USE_SUBG_OBJ 0
 
 !       INT_MODEL defines the type of interpolation model you wish
@@ -41,6 +43,7 @@
 !       INT_MODEL 2 depends in cell distance with exponential model
 #define INT_MODEL 2
 
+      USE global_constants_mod, only: dp, ip
 
       IMPLICIT NONE
 
@@ -49,14 +52,12 @@
       logical function interpolate_init(nx,ny,nlat,nlon,latEcb,lonEcb   &
                 ,YLAT,XLONG,nw,nz,ex,int_coord_tab,weights, sum_weights)
 
-!-----|--1--------2---------3---------4---------5---------6---------7-|
+!-----|--1---------2---------3---------4---------5---------6---------7---------8---------9---------0---------1---------2---------3-|
 !       distance_great_circle module: main routines for computation
-!-----|--1--------2---------3---------4---------5---------6---------7-|
-       USE dgc, ONLY: compute_bounds, find_closest_EC_cell              &
-                    , which_corner, create_interp_data, expand_tab      &
-                    , circular_coord
+!-----|--1---------2---------3---------4---------5---------6---------7---------8---------9---------0---------1---------2---------3-|
+       USE dgc, ONLY: compute_bounds, find_closest_EC_cell, which_corner, create_interp_data, expand_tab, circular_coord
 
-!-----|--1--------2---------3---------4---------5---------6---------7-|
+!-----|--1---------2---------3---------4---------5---------6---------7---------8---------9---------0---------1---------2---------3-|
 !       GENERAL DEFINITION VARIABLES
 !       nx, ny    :: highres grid
 !       nlat,nlon :: lowres grid
@@ -67,60 +68,60 @@
 !       nz        :: Number of neighbouring cells to interpolate with
 !                    It has currently been tested with 4, 9, 25 and 49
 !       ex        :: array expansion number
-!-----|--1--------2---------3---------4---------5---------6---------7-|
+!-----|--1---------2---------3---------4---------5---------6---------7---------8---------9---------0---------1---------2---------3-|
 
-       INTEGER, INTENT(IN) :: nx, ny, nlat, nlon, nw, nz, ex
+       INTEGER(ip), INTENT(IN) :: nx, ny, nlat, nlon, nw, nz, ex
 
 
-!-----|--1--------2---------3---------4---------5---------6---------7-|
-!       XLONG and YLAT are coordinates of the highres grid
-!-----|--1--------2---------3---------4---------5---------6---------7-|
+!-----|--1---------2---------3---------4---------5---------6---------7---------8---------9---------0---------1---------2---------3-|
+!       XLONG and YLAT are the two dimentionsal coordinates of the highres grid
+!-----|--1---------2---------3---------4---------5---------6---------7---------8---------9---------0---------1---------2---------3-|
 
-       REAL(KIND=8), DIMENSION(nx,ny) :: XLONG, YLAT
+       REAL(dp), DIMENSION(nx,ny) :: XLONG, YLAT
 
-!-----|--1--------2---------3---------4---------5---------6---------7-|
+!-----|--1---------2---------3---------4---------5---------6---------7---------8---------9---------0---------1---------2---------3-|
 !      Output of this routine == tab of weights for the computation
-!-----|--1--------2---------3---------4---------5---------6---------7-|
+!-----|--1---------2---------3---------4---------5---------6---------7---------8---------9---------0---------1---------2---------3-|
 
-       REAL(KIND=8), DIMENSION(nz,nx,ny)     ,INTENT(out) :: weights
-       REAL(KIND=8), DIMENSION(nx,ny)        ,INTENT(out) :: sum_weights
-       INTEGER,      DIMENSION(nw-1,nz,nx,ny),INTENT(out) :: int_coord_tab
+       REAL(dp),   DIMENSION(nz,nx,ny)     ,INTENT(out) :: weights
+       REAL(dp),   DIMENSION(nx,ny)        ,INTENT(out) :: sum_weights
+       INTEGER(ip),DIMENSION(nw-1,nz,nx,ny),INTENT(out) :: int_coord_tab
 
-!-----|--1--------2---------3---------4---------5---------6---------7-|
+!-----|--1---------2---------3---------4---------5---------6---------7---------8---------9---------0---------1---------2---------3-|
 !       latEcb, lonEcb are coordinates of the atmospheric grid
-!-----|--1--------2---------3---------4---------5---------6---------7-|
-       REAL(KIND=8), DIMENSION(nlat), INTENT(in) :: latEcb
-       REAL(KIND=8), DIMENSION(nlon), INTENT(in) :: lonEcb
+!-----|--1---------2---------3---------4---------5---------6---------7---------8---------9---------0---------1---------2---------3-|
+       REAL(dp), DIMENSION(nlat), INTENT(in) :: latEcb
+       REAL(dp), DIMENSION(nlon), INTENT(in) :: lonEcb
 
-!-----|--1--------2---------3---------4---------5---------6---------7-|
+!-----|--1---------2---------3---------4---------5---------6---------7---------8---------9---------0---------1---------2---------3-|
 !       Variables subscripted with "ex" are extended grids
 !        latexEcb, lonexEcb are the coordinates of the atm. model
 !        latex_bEcb, lonex_bEcb are the boundaries of the atm. grid
-!-----|--1--------2---------3---------4---------5---------6---------7-|
-       REAL(KIND=8), DIMENSION(-ex+1:nlat+ex) :: latexEcb, latex_bEcb
-       REAL(KIND=8), DIMENSION(-ex+1:nlon+ex) :: lonexEcb, lonex_bEcb
+!-----|--1---------2---------3---------4---------5---------6---------7---------8---------9---------0---------1---------2---------3-|
+       REAL(dp), DIMENSION(-ex+1:nlat+ex) :: latexEcb, latex_bEcb
+       REAL(dp), DIMENSION(-ex+1:nlon+ex) :: lonexEcb, lonex_bEcb
 
-!-----|--1--------2---------3---------4---------5---------6---------7-|
+!-----|--1---------2---------3---------4---------5---------6---------7---------8---------9---------0---------1---------2---------3-|
 !       Useful integers for loops mainly + file name placeholder
-!-----|--1--------2---------3---------4---------5---------6---------7-|
-       INTEGER :: k, i_close, j_close, corner, ii, jj, ll, i, j
+!-----|--1---------2---------3---------4---------5---------6---------7---------8---------9---------0---------1---------2---------3-|
+       INTEGER(ip) :: k, i_close, j_close, corner, ii, jj, ll, i, j
 
 #if ( INT_MODEL == 1 || INT_MODEL == 2 )
-       REAL(KIND=8) :: valmax
+       REAL(dp) :: valmax
 #endif
 
-       REAL(KIND=8), DIMENSION(nx,ny,nw,nz) :: tab_dat
+       REAL(dp), DIMENSION(nx,ny,nw,nz) :: tab_dat
 
 
-!-----|--1--------2---------3---------4---------5---------6---------7-|
+!-----|--1---------2---------3---------4---------5---------6---------7---------8---------9---------0---------1---------2---------3-|
 !       sumw is the sum of weights from the neighbouring points
 !       valmax is the maximum distance over the neighbouring cells
-!-----|--1--------2---------3---------4---------5---------6---------7-|
-       REAL(KIND=8) :: sumw
+!-----|--1---------2---------3---------4---------5---------6---------7---------8---------9---------0---------1---------2---------3-|
+       REAL(dp) :: sumw
 
-!-----|--1--------2---------3---------4---------5---------6---------7-|
+!-----|--1---------2---------3---------4---------5---------6---------7---------8---------9---------0---------1---------2---------3-|
 !       Preparing arrays for computations
-!-----|--1--------2---------3---------4---------5---------6---------7-|
+!-----|--1---------2---------3---------4---------5---------6---------7---------8---------9---------0---------1---------2---------3-|
 
 !       2.1: expansion of arrays (longitude IS circular, latitude NOT)
 
@@ -130,8 +131,8 @@
 !dmr   We need to fix manually the northest and southest bound ; if not
 !       the last point will be the last grid point center.
 
-       latexEcb(nlat+1:nlat+ex) = 90.0d0
-       latexEcb(-ex+1:0) = -90.0d0
+       latexEcb(nlat+1:nlat+ex) = 90.0_dp
+       latexEcb(-ex+1:0) = -90.0_dp
 
 #if ( DEBUG >= 2 )
        write(*,*) latEcb
@@ -148,10 +149,9 @@
 !       2.3: quick fixing of the extrema: one cannot expect the last value to be
 !            correct since there is initially no +90°N,S bound
 
-       latex_bEcb(-ex+1:-ex+2) = -90.0d0
-       latex_bEcb(nlat+ex-2:nlat+ex) = 90.0d0
-       lonex_bEcb(nlon+ex) = lonex_bEcb(circular_coord(nlon+ex,1,nlon)) &
-                           +360.0d0
+       latex_bEcb(-ex+1:-ex+2) = -90.0_dp
+       latex_bEcb(nlat+ex-2:nlat+ex) = 90.0_dp
+       lonex_bEcb(nlon+ex) = lonex_bEcb(circular_coord(nlon+ex,1,nlon)) + 360.0_dp
 
 #if ( DEBUG >= 2 )
        DO i=nlat+ex,-ex+1,-1
@@ -179,9 +179,9 @@
          weights(:,:,:)=0.0
          sum_weights(:,:)=0.0
 
-!-----|--1--------2---------3---------4---------5---------6---------7-|
+!-----|--1---------2---------3---------4---------5---------6---------7---------8---------9---------0---------1---------2---------3-|
 !       Main loop over the cells of the ISM
-!-----|--1--------2---------3---------4---------5---------6---------7-|
+!-----|--1---------2---------3---------4---------5---------6---------7---------8---------9---------0---------1---------2---------3-|
 
        DO ii = 1, nx
          DO jj = 1, ny
@@ -275,9 +275,7 @@
 #elif ( INT_MODEL == 0 )
            1.0d0
 #endif
-
            sumw = sumw + weights(ll,ii,jj)
-
 
            ENDDO ! on nz
 
@@ -286,74 +284,50 @@
         ENDDO ! on ny
       ENDDO   ! on nx
 
-      WRITE(*,*) "Finalized interpolate_init"
+!~       WRITE(*,*) "Finalized interpolate_init"
 
       return
       end function interpolate_init
 
-      logical function interpolate(int_coord_tab,weights,sum_weights   &
-                            ,sxsnowG,pfGi,nx,ny,nw,nz,nlon,nlat)
 
-      INTEGER, INTENT(in) :: nx,ny,nw,nz,nlon,nlat
 
-      INTEGER,      DIMENSION(nw-1,nz,nx,ny),INTENT(in) :: int_coord_tab
-      REAL(KIND=8), DIMENSION(nz,nx,ny)     ,INTENT(in) :: weights
-      REAL(KIND=8), DIMENSION(nx,ny)        ,INTENT(in) :: sum_weights
-!-----|--1--------2---------3---------4---------5---------6---------7-|
+      logical function interpolate(int_coord_tab,weights,sum_weights,sxsnowG,pfGi,nx,ny,nw,nz,nlon,nlat)
+
+      INTEGER(ip)                          ,INTENT(in) :: nx,ny,nw,nz,nlon,nlat
+
+      INTEGER(ip), DIMENSION(nw-1,nz,nx,ny),INTENT(in) :: int_coord_tab
+      REAL(dp),    DIMENSION(nz,nx,ny)     ,INTENT(in) :: weights
+      REAL(dp),    DIMENSION(nx,ny)        ,INTENT(in) :: sum_weights
+!-----|--1---------2---------3---------4---------5---------6---------7---------8---------9---------0---------1---------2---------3-|
 !       sxsnowG is the reading in climatological variable
-!-----|--1--------2---------3---------4---------5---------6---------7-|
-      REAL(KIND=8), DIMENSION(nlon,nlat), INTENT(in) :: sxsnowG
+!-----|--1---------2---------3---------4---------5---------6---------7---------8---------9---------0---------1---------2---------3-|
+      REAL(dp), DIMENSION(nlon,nlat), INTENT(in) :: sxsnowG
 
-      REAL(KIND=8), DIMENSION(nx,ny), INTENT(out) :: pfGi
+      REAL(dp), DIMENSION(nx,ny), INTENT(out) :: pfGi
 
-!~       REAL(KIND=8) :: sumw
+!~       REAL(dp) :: sumw
 !~ #if ( INT_MODEL == 1 || INT_MODEL == 2 )
-!~        REAL(KIND=8) :: valmax
+!~        REAL(dp) :: valmax
 !~ #endif
 
        INTEGER :: i,j,ii,jj,ll
 
 !       4.2: Actual interpolation
 
-!~        DO k = 1, nbmois
+       pfGi(:,:) = 0.0d0
+
        DO jj = 1, ny
          DO ii = 1, nx
-
-           pfGi(ii,jj) = 0.0d0
-!~            sumw = 0.0d0
-!~            weights(ii,jj,:)=0.0
-
-!~ #if ( INT_MODEL == 1 )
-!~ !dmr    valmax is the maximum distance from the given cells around
-!~            valmax  = MAXVAL(tab_dat(ii,jj,nw,:))*1.1
-!~ #elif ( INT_MODEL == 2 )
-!~ !dmr    in model 2, valmax should be the e-fold  distance (a valmin in fact)
-!~            ! valmax  = MINVAL(tab_dat(ii,jj,nw,:))
-!~            valmax  = 400000.0 ! in meters
-!~ #endif
 
 !dmr    nz is the number of neighbouring cells you want to interpolate with
            DO ll = 1, nz
 
-!~              i = NINT(tab_dat(ii,jj,1,ll))
-!~              j = NINT(tab_dat(ii,jj,2,ll))
-
-                i = int_coord_tab(1,ll,ii,jj)
-                j = int_coord_tab(2,ll,ii,jj)
-
-!~              weights(ii,jj,ll) =                                        &
-!~ #if ( INT_MODEL == 1 )
-!~            (1-tab_dat(ii,jj,nw,ll)**2/valmax**2)
-!~ #elif ( INT_MODEL == 2 )
-!~            EXP(1-tab_dat(ii,jj,nw,ll)/valmax)
-!~ #elif ( INT_MODEL == 0 )
-!~            1.0d0
-!~ #endif
+             i = int_coord_tab(1,ll,ii,jj)
+             j = int_coord_tab(2,ll,ii,jj)
 
              pfGi(ii,jj) = pfGi(ii,jj) + sxsnowG(j,i)                   &
              * weights(ll,ii,jj)
 
-!~              sumw = sumw + weights(ii,jj,ll)
            ENDDO ! on nz
 
            pfGi(ii,jj) = pfGi(ii,jj) / sum_weights(ii,jj)
@@ -370,7 +344,6 @@
 
          ENDDO
       ENDDO
-!~       ENDDO
 
       interpolate = .true.
 
@@ -378,4 +351,6 @@
 
       end module interpolate_mod
 
+!-----|--1---------2---------3---------4---------5---------6---------7---------8---------9---------0---------1---------2---------3-|
 !-dmr The End of All Things (op. cit.)
+!-----|--1---------2---------3---------4---------5---------6---------7---------8---------9---------0---------1---------2---------3-|
