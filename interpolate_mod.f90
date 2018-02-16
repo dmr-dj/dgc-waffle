@@ -292,9 +292,9 @@
       end function interpolate_init
 
       logical function interpolate(int_coord_tab,weights,sum_weights   &
-                            ,sxsnowG,pfGi,nx,ny,nw,nz,nlon,nlat,nbmois)
+                            ,sxsnowG,pfGi,nx,ny,nw,nz,nlon,nlat)
 
-      INTEGER, INTENT(in) :: nx,ny,nw,nz,nlon,nlat,nbmois
+      INTEGER, INTENT(in) :: nx,ny,nw,nz,nlon,nlat
 
       INTEGER,      DIMENSION(nw-1,nz,nx,ny),INTENT(in) :: int_coord_tab
       REAL(KIND=8), DIMENSION(nz,nx,ny)     ,INTENT(in) :: weights
@@ -302,24 +302,24 @@
 !-----|--1--------2---------3---------4---------5---------6---------7-|
 !       sxsnowG is the reading in climatological variable
 !-----|--1--------2---------3---------4---------5---------6---------7-|
-      REAL(KIND=8), DIMENSION(nlon,nlat,nbmois), INTENT(in) :: sxsnowG
+      REAL(KIND=8), DIMENSION(nlon,nlat), INTENT(in) :: sxsnowG
 
-      REAL(KIND=8), DIMENSION(nx,ny, nbmois), INTENT(out) :: pfGi
+      REAL(KIND=8), DIMENSION(nx,ny), INTENT(out) :: pfGi
 
 !~       REAL(KIND=8) :: sumw
 !~ #if ( INT_MODEL == 1 || INT_MODEL == 2 )
 !~        REAL(KIND=8) :: valmax
 !~ #endif
 
-       INTEGER :: i,j,ii,jj,k,ll
+       INTEGER :: i,j,ii,jj,ll
 
 !       4.2: Actual interpolation
 
-       DO k = 1, nbmois
+!~        DO k = 1, nbmois
        DO jj = 1, ny
          DO ii = 1, nx
 
-           pfGi(ii,jj,k) = 0.0d0
+           pfGi(ii,jj) = 0.0d0
 !~            sumw = 0.0d0
 !~            weights(ii,jj,:)=0.0
 
@@ -350,13 +350,13 @@
 !~            1.0d0
 !~ #endif
 
-             pfGi(ii,jj,k) = pfGi(ii,jj,k) + sxsnowG(j,i,k)             &
+             pfGi(ii,jj) = pfGi(ii,jj) + sxsnowG(j,i)                   &
              * weights(ll,ii,jj)
 
 !~              sumw = sumw + weights(ii,jj,ll)
            ENDDO ! on nz
 
-           pfGi(ii,jj,k) = pfGi(ii,jj,k) / sum_weights(ii,jj)
+           pfGi(ii,jj) = pfGi(ii,jj) / sum_weights(ii,jj)
 
 #if ( DEBUG > 1 )
       DO i=1,NINT(SQRT(REAL(nz,KIND=4)))
@@ -370,7 +370,7 @@
 
          ENDDO
       ENDDO
-      ENDDO
+!~       ENDDO
 
       interpolate = .true.
 
