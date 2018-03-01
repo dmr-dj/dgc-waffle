@@ -41,7 +41,7 @@
 !       INT_MODEL 0 is no distance weight (equal contribution of all cells)
 !       INT_MODEL 1 depends in cell distance quadratrically
 !       INT_MODEL 2 depends in cell distance with exponential model
-#define INT_MODEL 2
+#define INT_MODEL 1
 
       USE global_constants_mod, only: dp, ip
 
@@ -107,7 +107,7 @@
        INTEGER(ip) :: k, i_close, j_close, corner, ii, jj, ll, i, j
 
 #if ( INT_MODEL == 1 || INT_MODEL == 2 )
-       REAL(dp) :: valmax
+       REAL(dp) :: valmax, valmin
 #endif
 
        REAL(dp), DIMENSION(nx,ny,nw,nz) :: tab_dat
@@ -250,7 +250,9 @@
 
 #if ( INT_MODEL == 1 )
 !dmr    valmax is the maximum distance from the given cells around
-         valmax  = MAXVAL(tab_dat(ii,jj,nw,:))*1.1
+         valmax  = MAXVAL(tab_dat(ii,jj,nw,:))
+         valmin  = MINVAL(tab_dat(ii,jj,nw,:))
+
 #elif ( INT_MODEL == 2 )
 !dmr    in model 2, valmax should be the e-fold  distance (a valmin in fact)
            ! valmax  = MINVAL(tab_dat(ii,jj,nw,:))
@@ -269,7 +271,8 @@
 
            weights(ll,ii,jj) =                                          &
 #if ( INT_MODEL == 1 )
-           (1-tab_dat(ii,jj,nw,ll)**2/valmax**2)
+!~            (1-tab_dat(ii,jj,nw,ll)**2/valmax**2)
+            (valmax-tab_dat(ii,jj, nw, ll))**2/(valmax-valmin)**2
 #elif ( INT_MODEL == 2 )
            EXP(1-tab_dat(ii,jj,nw,ll)/valmax)
 #elif ( INT_MODEL == 0 )
