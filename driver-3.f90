@@ -57,7 +57,7 @@
 !                    (only for climate data, if yearly data, set to 1)
 !-----|--1--------2---------3---------4---------5---------6---------7-|
 
-       INTEGER, PARAMETER :: nx = 360, ny = 180, nlat = 32, nlon = 64   &
+       INTEGER, PARAMETER :: nx = 720, ny = 360, nlat = 32, nlon = 64   &
               , nbmois = 12
        INTEGER, PARAMETER :: nw = 3, nz = 9, ex = 2
 
@@ -164,13 +164,13 @@
 !       ENDDO
 
        DO i=1,nx
-         XLONG(i,:) = 0.5+(i-1)*1.0
+         XLONG(i,:) = 0.5+(i-1)*0.5
        ENDDO
 
        lonlist(:) = XLONG(:,1)
 
        DO j=1,ny
-         YLAT(:,j) = -89.5+(j-1)*1.0
+         YLAT(:,j) = -89.75+(j-1)*0.5
        ENDDO
 
        latlist(:) = YLAT(1,:)
@@ -202,13 +202,10 @@
 !-----|--1---------2---------3---------4---------5---------6---------7---------8---------9---------0---------1---------2---------3-|
 !
 !-----|--1---------2---------3---------4---------5---------6---------7---------8---------9---------0---------1---------2---------3-|
-!$OMP PARALLEL
-!$OMP DO
+
        do nummois=1,nbmois
           results = interpolate(tab_dat,the_weights,the_sum_weights,sxsnowG(:,:,nummois),pfGi(:,:,nummois),nx,ny,nw,nz,nlon,nlat)
        enddo
-!$OMP END DO
-!$OMP END PARALLEL
 
        call cpu_time(finish)
        write(*,*) '("Time = ",f6.3," seconds.")',finish-start
