@@ -272,7 +272,8 @@
            weights(ll,ii,jj) =                                          &
 #if ( INT_MODEL == 1 )
 !~            (1-tab_dat(ii,jj,nw,ll)**2/valmax**2)
-            (valmax-tab_dat(ii,jj, nw, ll))**2/(valmax-valmin)**2
+!afq            (valmax-tab_dat(ii,jj, nw, ll))**2/(valmax-valmin)**2
+           ( tab_dat(ii,jj, nw, ll) + 1.e-8 )**(-2.)
 #elif ( INT_MODEL == 2 )
            EXP(1-tab_dat(ii,jj,nw,ll)/valmax)
 #elif ( INT_MODEL == 0 )
