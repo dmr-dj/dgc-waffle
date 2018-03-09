@@ -353,6 +353,78 @@
 
       end function interpolate
 
+      logical function interpolateD(int_coord_tab,weights,sum_weights,sxsnowG,pfGi,nx,ny,nw,nz,nlon,nlat,nzz)
+
+      INTEGER(ip)                          ,INTENT(in) :: nx,ny,nw,nz,nlon,nlat, nzz
+
+      INTEGER(ip), DIMENSION(nw-1,nz,nx,ny),INTENT(in) :: int_coord_tab
+      REAL(dp),    DIMENSION(nz,nx,ny)     ,INTENT(in) :: weights
+      REAL(dp),    DIMENSION(nx,ny)        ,INTENT(in) :: sum_weights
+!-----|--1---------2---------3---------4---------5---------6---------7---------8---------9---------0---------1---------2---------3-|
+!       sxsnowG is the reading in climatological variable
+!-----|--1---------2---------3---------4---------5---------6---------7---------8---------9---------0---------1---------2---------3-|
+      REAL(dp), DIMENSION(nzz,nlon,nlat), INTENT(in) :: sxsnowG
+
+      REAL(dp), DIMENSION(nzz,nx,ny), INTENT(out) :: pfGi
+
+!~       REAL(dp) :: sumw
+!~ #if ( INT_MODEL == 1 || INT_MODEL == 2 )
+!~        REAL(dp) :: valmax
+!~ #endif
+
+       INTEGER :: i,j,ii,jj,ll
+
+!       4.2: Actual interpolation
+
+       pfGi(:,:,:) = 0.0d0
+
+
+!$OMP PARALLEL DO COLLAPSE(2)
+       DO jj = 1, ny
+         DO ii = 1, nx
+
+!dmr    nz is the number of neighbouring cells you want to interpolate with
+           DO ll = 1, nz
+
+             i = int_coord_tab(1,ll,ii,jj)
+             j = int_coord_tab(2,ll,ii,jj)
+
+             pfGi(:,ii,jj) = pfGi(:,ii,jj) + sxsnowG(:,j,i)                   &
+             * weights(ll,ii,jj)
+
+           ENDDO ! on nz
+
+           pfGi(:,ii,jj) = pfGi(:,ii,jj) / sum_weights(ii,jj)
+
+!~ #if ( DEBUG > 1 )
+!~       DO i=1,NINT(SQRT(REAL(nz,KIND=4)))
+!~         WRITE(*,'(3F18.8)') (tab_dat(ii,jj,nw,j)/1000.0,j=(i-1)*3+1,i*3)
+!~       ENDDO
+!~       DO i=1,NINT(SQRT(REAL(nz,KIND=4)))
+!~         WRITE(*,'(3F10.5)') (weights(ii,jj,j)/sumw,j=(i-1)*3+1,i*3)
+!~       ENDDO
+!~       READ(*,*)
+!~ #endif
+
+         ENDDO
+      ENDDO
+!$OMP END PARALLEL DO
+
+      interpolateD = .true.
+
+      end function interpolateD
+
+
+
+
+
+
+
+
+
+
+
+
       end module interpolate_mod
 
 !-----|--1---------2---------3---------4---------5---------6---------7---------8---------9---------0---------1---------2---------3-|

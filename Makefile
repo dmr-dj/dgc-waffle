@@ -13,7 +13,7 @@ objdir = .obj
 # Command-line options at make call
 ifort ?= 1
 debug ?= 0
-opemp ?= 0
+opemp ?= 1
 
 ifeq ($(ifort), 0)
 FC = gfortran
@@ -53,7 +53,7 @@ else
 ## IFORT OPTIONS ##
 
 ifeq ($(opemp), 1)
-     OMPFLAGS        = -openmp -openmp-link static -auto-scalar -norecursive
+     OMPFLAGS        = -openmp -openmp-link static -auto-scalar -norecursive -diag-disable 10246
 else
      OMPFLAGS        =
 endif
@@ -63,7 +63,7 @@ endif
     FLAGS        = -module $(objdir) -L$(objdir) -I$(INC)
     DFLAGS       = -cpp -vec-report0 -132 -r8 $(OMPFLAGS)
     ifeq ($(debug), 1)
-         DFLAGS   = -cpp -vec-report0 -132 -r8 -C -traceback -ftrapuv -fpe0 -check all -vec-report0 $(OMPFLAGS)
+         DFLAGS   = -g -pg -cpp -vec-report0 -132 -r8 -C -traceback -ftrapuv -fpe0 -check all -vec-report0 $(OMPFLAGS)
          # -w
     endif
     OBJFAGS = -I$(objdir)
@@ -98,7 +98,8 @@ OBJPATH = $(addprefix $(objdir)/, $(OBJS))
 ## Complete programs
 
 main: $(OBJS)
-	$(FC) $(DFLAGS) -o test.x $(OBJFAGS) $(OBJPATH) driver-3.f90 $(LIBS)
+	# $(FC) $(DFLAGS) -o test.x $(OBJFAGS) $(OBJPATH) driver-3.f90 $(LIBS)
+	$(FC) $(DFLAGS) -o test.x $(OBJFAGS) $(OBJPATH) driver-4.f90 $(LIBS)
 	@echo " "
 	@echo "    test.x is ready."
 	@echo " "
